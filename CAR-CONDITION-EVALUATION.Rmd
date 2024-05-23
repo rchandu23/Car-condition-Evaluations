@@ -1,0 +1,293 @@
+---
+title: "CAR CONDITION EVALUATION USING MACHINE LEARNING for Informed Purchasing Decisions"
+author: "NUNNA RAMA CHANDU"
+date: "2023-04-04"
+output: html_document
+---
+
+INTRODUCTION:
+
+Evaluating the conditions of a car before purchasing plays a crucial role in decision making. Manually, classifying a good or acceptable condition car from an unacceptable conditioned car is time-consuming and labor-intensive. We can leverage Machine Learning techniques to develop an automatic system for car evaluation.A decision to buy a car or not according to its physical qualifications is being discussed in this project. The dataset is taken from kaggle. This data set is composed of 1727 rows and 7 different attributes. Based on the information provided by the data set, each car will be classified, using the six attributes, into unacceptable, acceptable, good or very good. The variables of the dataset are as follows:
+
+Buying Price : v-high, high, med, low
+
+Maintenance Cost : v-high, high, med, low
+
+Number of doors : 2, 3, 4, 5-more
+
+Number of persons : 2, 4, more
+
+lug_boot : small, med, big
+
+Safety : low, med, high
+
+Decision : unacceptable, acceptable, good or very good
+
+Through this project we aim to :
+
+   Analyse the different parameters for the car evaluation
+
+   Plot the visualizations for better understanding of the dataset
+
+   Build the model using supervised learning methods like Decision Tree and Random Forest
+
+   Understand and compare the accuracy of the both models
+
+Packages Required:
+```{r}
+#load the required packages
+library(ggplot2)
+library(gplots)
+library(dplyr)
+library(tidyverse)
+library(reshape2)
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(randomForest)
+```
+
+Importing the dataset
+```{r}
+#load the dataset
+library(readxl)
+car_data <- read_excel("car_evaluation.xlsx")
+dim(car_data)
+summary(car_data)
+```
+
+Exploratory Data Analysis:
+
+examining the dataset using head() and str() functions
+```{r}
+head(car_data,10)
+```
+
+```{r}
+str(car_data)
+```
+
+Inference: 
+
+We see that the column names are not descriptive, so we assign new column names based on the dataset and also check if there are any missing values in the dataset.
+
+```{r}
+colnames(car_data)=c("buying","maint","doors","persons","lug_boot","safety","class")
+colSums(is.na(car_data))
+```
+
+Inference:
+
+The dataset looks clean with no missing values. Basic insights of the data can be obtained by exploring the data through visualizations.
+
+
+Bar charts:
+
+Let us examine how the cars are classified as good, acceptable or unacceptable based on different car parameters using bar charts.
+
+```{r}
+ggplot(car_data,aes(x=class,fill=lug_boot))+geom_histogram(stat="count")+labs(title="Class Vs Luggage boot",subtitle="Histogram",y="Frequency of Luggage boot",x="Class")
+```
+
+```{r}
+ggplot(car_data, aes(class , fill = safety )) +
+  geom_bar(position = position_dodge()) + 
+  ggtitle("Car class vs Safety") +
+  xlab("Class") + 
+  ylab("safety")
+```
+
+```{r}
+ggplot(car_data, aes(class , fill = buying )) +
+  geom_bar(position = position_dodge()) + 
+  ggtitle("Car class vs Buying Price") +
+  xlab("Class") + 
+  ylab("Buying Price")
+```
+
+Density Plots:
+
+A Density Plot visualizes the distribution of data over a continuous interval or time period. Let us check how the density plot looks like for different paramaters
+
+```{r}
+ggplot(data = car_data,aes(fill=as.factor(doors),x=persons))+geom_density(alpha=0.3)
+```
+
+```{r}
+ggplot(data = car_data,aes(fill=as.factor(maint),x=class))+geom_density(alpha=0.3)+facet_wrap(~class)
+```
+
+
+
+Model 1: Decision Tree
+
+Decision trees generate classification models in tree forms. This form helps to understand the decision hierarchy and relations between the attributes by visualizing as using the possible outcomes of each attribute as a branch of the tree. Lets start with splitting the dataset into training and testing data sets,as being 70% of the data set is for training and 30% is for testing processes
+
+```{r}
+set.seed(100)
+classValues<-as.vector(car_data$class)
+train_test_split <- createDataPartition(y=classValues, p=0.7,list =FALSE)
+train_data <-car_data[train_test_split,]
+test_data <- car_data[-train_test_split,]
+summary(train_data)
+```
+
+```{r}
+summary(test_data)
+```
+
+```{r}
+train_control <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+set.seed(3333)
+decision_tree <- train(class ~., data = train_data, method = "rpart", parms = list(split = "information"), trControl = train_control, tuneLength = 10)
+decision_tree
+```
+
+```{r}
+# plotting decision tree
+prp(decision_tree$finalModel, type=3, main= "Probabilities per class")
+```
+
+Inference:
+
+The classification process is done but it is not obvious how accurate the model succeeded. The predictions of train and test sets are being compared with the data of original train and test set and their accuracy values are gathered as 87.3% for train set and 87.5% for the test set. The accuracy on the test set is the base for the study to evaluate how well is the performance of the model on the data it did not process before.
+
+```{r}
+# prediction of train data
+train_pred <- predict(decision_tree, train_data)
+head(train_pred)
+```
+```{r}
+table(train_pred, train_data$class)
+```
+
+```{r}
+mean(train_pred  == train_data$class)
+```
+
+```{r}
+# prediction of test data
+test_pred <- predict(decision_tree, test_data)
+head(test_pred)
+```
+
+```{r}
+table(test_pred, test_data$class)
+```
+```{r}
+mean(test_pred  == test_data$class)
+```
+
+The statistical variables are also calculated to understand the success of the mode by building a confusion matrix.
+
+```{r}
+confusionMatrix(test_pred, as.factor(test_data$class))
+```
+
+```{r}
+confusionMatrix(test_pred, as.factor(test_data$class), mode = "prec_recall", positive="1")
+```
+
+Inference:
+
+We see that the accuracy of the model is 87.6 %
+
+
+
+Model 2: Random Forest
+
+Random forests or random decision forests is an ensemble learning method for classification, regression and other tasks that operates by constructing a multitude of decision trees at training time. After decision tree algorithm, to increase the accuracy of the model, we build the model using random forest method.
+```{r}
+random_forest <- randomForest(as.factor(class)~., data = train_data, importance = TRUE)
+random_forest
+```
+```{r}
+plot(random_forest)
+```
+
+Inference:
+
+The "trees" and "error" refers to the number of decision trees in the forest and out-of-bag (OOB) error rate.
+
+In a random forest plot, the number of trees is usually plotted on the x-axis and the OOB error rate is plotted on the y-axis. The plot shows how the OOB error rate changes ad the number of tress in the forest increases. Typically, the OOB error rate decreases with increasing number of trees.
+
+The number of trees is an important hyperparameter in random forest and determines the size of the forest. Increasing the number of trees can improve the accuracy of the classification, but may also increase the overfitting.
+
+The OOB error rate is an estimate of the generalization error of the random forest. can be used to evaluate the performance of the random forest. A lower OOB error rate indicates a better generalization performance of the model
+
+
+```{r}
+varImpPlot(random_forest, main = 'Feature Importance')
+```
+Inference:
+
+Mean decrease accuracy measures the reduction in accuracy achieved by each feature when the feature is randomly permuted.
+
+
+We again check the prediction of train and test sets with the data of original train and test set.
+```{r}
+#fine tuning the model
+random_forest_1 <- randomForest(as.factor(class)~., data = train_data, ntree = 500, mtry = 3, importance = TRUE)
+random_forest_1
+```
+
+```{r}
+#prediction on train data set
+train_pred1 <-predict(random_forest_1, train_data, type = "class")
+table(train_pred1, train_data$class)
+```
+
+```{r}
+mean(train_pred1 == train_data$class)
+```
+
+```{r}
+#prediction on test data set
+test_pred1 <-predict(random_forest_1, test_data, type = "class")
+table(test_pred1, test_data$class)
+```
+
+```{r}
+mean(test_pred1==test_data$class)
+```
+
+The statistical variables are also calculated to understand the success of the mode by building a confusion matrix.
+
+```{r}
+confusionMatrix(test_pred1, as.factor(test_data$class))
+```
+
+```{r}
+confusionMatrix(test_pred1, as.factor(test_data$class), mode = "prec_recall", positive="1")
+```
+
+Inference:
+
+We see that the accuracy of the model has improved and is 97.87 %
+
+Model 3: Naive Bayes
+```{r}
+library(e1071)
+```
+```{r}
+set.seed(123) # for reproducibility
+train_index <- sample(nrow(car_data), 0.7 * nrow(car_data))
+train_data <- car_data[train_index, ]
+test_data <- car_data[-train_index, ]
+```
+```{r}
+nb_model <- naiveBayes(class ~ buying + maint + doors + persons + lug_boot + safety, data = train_data)
+```
+
+
+```{r}
+nb_pred <- predict(nb_model, newdata = test_data)
+accuracy <- sum(nb_pred == test_data$class) / nrow(test_data)
+print(paste("Naive Bayes accuracy:", round(accuracy, 4)))
+```
+
+Conclusion:
+
+This dataset was divided into four classes as very good, good, acceptable and unacceptable cars considering the six different attributes which are buying price, maintenance, number of doors, capacity in terms of persons to carry, size of luggage boot and the estimated safety value. The model we built using naive bayes and decision tree had the accuracy of 82.47% and 87.6%. and to increase the accuracy we built model using random Forest method and the accuracy improved to 97.8 %.
+
+According to the results, safety is the key attribute for car buyers. If a customers thinks a car is not safe, he/she does not buy it. Then, the capacity of people it can carry matters, if a car has seats for more than 4 people, customers do not buy it. If it is less, maintenance fee is a consideration. If maintenance fee is low, buying price comes into evaluation. If it is acceptably low again, luggage capacity is the final consideration in evaluating the car.
